@@ -66,10 +66,18 @@ streamlit run app_v14.py
 
 ## API設定
 
+### ローカル環境
 1. [Google AI Studio](https://aistudio.google.com/app/apikey)でGemini API Keyを取得
 2. `.env`ファイルを作成し、以下を記述：
    ```
    GEMINI_API_KEY=your-api-key-here
+   ```
+
+### Streamlit Cloud
+1. [Streamlit Cloud](https://streamlit.io/cloud)でアプリをデプロイ
+2. App settings → Secrets で以下を設定：
+   ```toml
+   GEMINI_API_KEY = "your-api-key-here"
    ```
 
 ## 使用方法
@@ -94,7 +102,9 @@ demo_hokkoku/
 ├── requirements.txt           # Python依存関係
 ├── README.md                 # このファイル
 ├── .gitignore               # Git除外設定
-└── .env                     # API Key設定（要作成）
+├── .streamlit/
+│   └── config.toml          # Streamlitテーマ設定
+└── .env                     # API Key設定（ローカル用、要作成）
 ```
 
 ## 技術スタック

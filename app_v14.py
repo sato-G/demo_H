@@ -23,9 +23,16 @@ if "compliance_results" not in st.session_state:
 DISPLAY_HEIGHT = 650
 
 # API Key設定
-gemini_api_key = os.getenv("GEMINI_API_KEY")
+# Streamlit Cloudではst.secretsを使用
+gemini_api_key = None
+if "GEMINI_API_KEY" in st.secrets:
+    gemini_api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    # ローカル環境では.envファイルから読み込み
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+
 if not gemini_api_key:
-    st.error("❌ API Keyが見つかりません")
+    st.error("❌ API Keyが見つかりません。Streamlit Cloudの場合はSecretsに、ローカルの場合は.envファイルにGEMINI_API_KEYを設定してください。")
     st.stop()
 
 
