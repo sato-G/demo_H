@@ -80,7 +80,7 @@ def check_compliance(text: str) -> list:
             "item_name": "項目名",
             "status": "○" または "△" または "×",
             "confidence": 信頼度（0-100の整数）,
-            "snippet": "該当箇所の文章（判定理由の説明に使用した部分を抽出）",
+            "snippet": "該当箇所の文章（改行は...で置換して1行で出力）",
             "reason": "判定理由の簡潔な説明"
         }}
     ]
@@ -308,8 +308,8 @@ def create_interactive_display(text: str, results: list, height: int = 650) -> s
             
             // 文ごとの区切り関数
             function splitIntoSentences(text) {{
-                // 句読点で区切り、空文字を除去
-                return text.split(/[。．！？\\n]/).filter(s => s.trim().length > 0);
+                // 句読点、改行、省略記号で区切り、空文字を除去
+                return text.split(/[。．！？\\n]|\\.\\.\\./g).filter(s => s.trim().length > 0);
             }}
             
             // テキスト正規化関数（空白・改行を統一）
@@ -344,10 +344,15 @@ def create_interactive_display(text: str, results: list, height: int = 650) -> s
                 // 各文について一致を試行
                 sentences.forEach((sentence, index) => {{
                     const trimmedSentence = sentence.trim();
-                    if (trimmedSentence.length < 3) return; // 短すぎる文はスキップ
+                    // 短すぎる文や話者ラベルのみの文はスキップ
+                    if (trimmedSentence.length < 3 || /^(顧客|店員)[：:]?$/.test(trimmedSentence)) return;
                     
-                    // "..." などの記号で始まる場合は除去してマッチングを試行
-                    const cleanedSentence = trimmedSentence.replace(/^[\\s\\.\\-…]+/, '').trim();
+                    // スピーカーラベルと記号を除去して検索用文章を作成
+                    const cleanedSentence = trimmedSentence
+                        .replace(/^(顧客|店員)[：:]\\s*/, '')    // 話者ラベルを除去
+                        .replace(/^[\\s\\.\\-…]+/, '')         // 先頭記号を除去
+                        .replace(/[。．！？]+$/, '')          // 末尾句読点を除去
+                        .trim();
                     const searchSentence = cleanedSentence || trimmedSentence;
                     
                     // 正規化してマッチング
