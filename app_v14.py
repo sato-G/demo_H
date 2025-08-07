@@ -306,7 +306,18 @@ def create_interactive_display(text: str, results: list, height: int = 650) -> s
                 lastScrollPosition = textContainer.scrollTop;
             }});
             
-            // ハイライト関数
+            // 文ごとの区切り関数
+            function splitIntoSentences(text) {{
+                // 句読点で区切り、空文字を除去
+                return text.split(/[。．！？\\n]/).filter(s => s.trim().length > 0);
+            }}
+            
+            // テキスト正規化関数（空白・改行を統一）
+            function normalizeText(text) {{
+                return text.replace(/\\s+/g, ' ').trim();
+            }}
+            
+            // 改善されたハイライト関数
             function highlightSnippet(snippet) {{
                 if (!snippet) return;
                 
@@ -324,31 +335,78 @@ def create_interactive_display(text: str, results: list, height: int = 650) -> s
                 // テキストを元に戻してから新しいハイライトを適用
                 restoreText();
                 
-                // 新しいハイライトを適用
+                // 文ごとに分割してハイライト処理
+                const sentences = splitIntoSentences(snippet);
                 const textContent = textContainer.innerHTML;
-                const escapedSnippet = snippet.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
-                const highlightedText = textContent.replace(
-                    new RegExp(escapedSnippet, 'g'),
-                    `<span class="highlight" id="highlight-target">${{snippet}}</span>`
-                );
-                textContainer.innerHTML = highlightedText;
+                let highlightedText = textContent;
+                let foundMatch = false;
                 
-                // ハイライト要素へスクロール
-                setTimeout(() => {{
-                    const highlightElement = document.getElementById('highlight-target');
-                    if (highlightElement) {{
-                        const elementTop = highlightElement.offsetTop;
-                        const containerHeight = textContainer.clientHeight;
-                        const targetScrollTop = elementTop - (containerHeight / 2) + (highlightElement.clientHeight / 2);
-                        
-                        textContainer.scrollTo({{
-                            top: Math.max(0, targetScrollTop),
-                            behavior: 'smooth'
-                        }});
+                // 各文について一致を試行
+                sentences.forEach((sentence, index) => {{
+                    const trimmedSentence = sentence.trim();
+                    if (trimmedSentence.length < 3) return; // 短すぎる文はスキップ
+                    
+                    // "..." などの記号で始まる場合は除去してマッチングを試行
+                    const cleanedSentence = trimmedSentence.replace(/^[\\s\\.\\-…]+/, '').trim();
+                    const searchSentence = cleanedSentence || trimmedSentence;
+                    
+                    // 正規化してマッチング
+                    const normalizedSentence = normalizeText(searchSentence);
+                    const escapedSentence = normalizedSentence.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
+                    
+                    // 複数のマッチングパターンを試行
+                    const patterns = [
+                        // 完全一致
+                        new RegExp(escapedSentence, 'gi'),
+                        // 前後の空白を考慮
+                        new RegExp(`\\\\s*${{escapedSentence}}\\\\s*`, 'gi'),
+                        // HTMLタグ間の改行を考慮
+                        new RegExp(escapedSentence.replace(/\\s+/g, '[\\\\s<br>]*'), 'gi')
+                    ];
+                    
+                    for (let pattern of patterns) {{
+                        if (pattern.test(highlightedText)) {{
+                            const highlightId = index === 0 ? 'highlight-target' : `highlight-${{index}}`;
+                            highlightedText = highlightedText.replace(pattern, (match) => {{
+                                foundMatch = true;
+                                return `<span class="highlight" id="${{highlightId}}">${{match}}</span>`;
+                            }});
+                            break;
+                        }}
                     }}
-                }}, 50);
+                }});
                 
-                currentHighlight = snippet;
+                // ハイライトが適用された場合のみテキストを更新
+                if (foundMatch) {{
+                    textContainer.innerHTML = highlightedText;
+                    
+                    // 最初のハイライト要素へスクロール
+                    setTimeout(() => {{
+                        const highlightElement = document.getElementById('highlight-target');
+                        if (highlightElement) {{
+                            const elementTop = highlightElement.offsetTop;
+                            const containerHeight = textContainer.clientHeight;
+                            const targetScrollTop = elementTop - (containerHeight / 2) + (highlightElement.clientHeight / 2);
+                            
+                            textContainer.scrollTo({{
+                                top: Math.max(0, targetScrollTop),
+                                behavior: 'smooth'
+                            }});
+                        }}
+                    }}, 50);
+                    
+                    currentHighlight = snippet;
+                }} else {{
+                    // マッチしない場合は従来の方法を試行
+                    const escapedSnippet = snippet.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
+                    const fallbackPattern = new RegExp(escapedSnippet.replace(/\\s+/g, '[\\\\s<br>]*'), 'gi');
+                    if (fallbackPattern.test(textContent)) {{
+                        highlightedText = textContent.replace(fallbackPattern, 
+                            `<span class="highlight" id="highlight-target">${{snippet}}</span>`);
+                        textContainer.innerHTML = highlightedText;
+                        currentHighlight = snippet;
+                    }}
+                }}
             }}
             
             // テキストを元に戻す
